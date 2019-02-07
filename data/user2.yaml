@@ -1,0 +1,10 @@
+id: 15654,
+name: 'Rodolfo'
+surname: 'Pérez'
+birth_date: '1993-11-12'
+interaction_constraints: [True, False, False]
+user_state: 0
+language: 'en' # ISO 639-1
+sex: 'False' # True = Female, False = Male
+preferences: ['Hardware', 'Impresión 3D', 'Hablar con Mini']
+proactivity_level: 9

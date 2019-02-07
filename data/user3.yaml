@@ -1,0 +1,10 @@
+id: 15453,
+name: 'Wenceslao'
+surname: 'Díaz'
+birth_date: '1995-08-08'
+interaction_constraints: [False, False, False]
+user_state: 0
+language: 'es' # ISO 639-1
+sex: 'False' # True = Female, False = Male
+preferences: ['Software', 'Pixar', 'Lasaña']
+proactivity_level: 7

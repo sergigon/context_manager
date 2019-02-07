@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+	<arg name="robot" default="$(env ROBOT_ID)"/>
+	<group ns="$(arg robot)">
+		<node name="context_manager" pkg="context_manager" type="context_manager_node.py" output="screen"/>
+	</group>
+</launch>
+
+

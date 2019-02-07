@@ -1,0 +1,10 @@
+id: 15432
+name: 'Pepa'
+surname: 'García'
+birth_date: '1990-08-15'
+interaction_constraints: [True, False, True]
+user_state: 0,
+language: 'es' # ISO 639-1
+sex: 'True' # True = Female, False = Male
+preferences: ['Choped', 'Mortadela', 'Marca', 'Harry Potter', 'Nuvole Bianche']
+proactivity_level: 5

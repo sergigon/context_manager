@@ -1,0 +1,10 @@
+id: 41415,
+name: 'María'
+surname: 'Rodríguez'
+birth_date: '1995-06-12'
+interaction_constraints: [False, False, True]
+user_state: 0
+language: 'es' # ISO 639-1
+sex: 'True' # True = Female, False = Male
+preferences: ['Canarias', 'Chocolate', 'Gatos']
+proactivity_level: 10
