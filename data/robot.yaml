@@ -1,8 +1,7 @@
-robot: 
-  id_robot: 15465
-  interfaces_status: [True, False, True]
-  robot_mood: 'happy'
-  location: 'Europe/Madrid' # Timezone (database name)
-  country: 'ES' # ISO 3166-2 (Alpha-2 code)
-  city: 'Leganes'
+id_robot: 15465
+interfaces_status: [True, False, True]
+robot_mood: 'happy'
+location: 'Europe/Madrid' # Timezone (database name)
+country: 'ES' # ISO 3166-2 (Alpha-2 code)
+city: 'Leganes'
 
