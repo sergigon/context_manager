@@ -40,150 +40,327 @@ import sys
 import datetime
 import signal # https://stackoverflow.com/questions/492519/timeout-on-a-function-call
 
-# Global variables
-time_wait = 10 # sec
+
 
 # Exceptions
 class TimeOut(Exception):
     pass
 
-# Register an handler for the timeout
-def handler(signum, frame):
-    print "Forever is over!"
-    raise TimeOut("end of time")
+class PCTablet_Connection():
+    """
+    PC - Tablet Connection class.
+    """
 
-# Define progress callback that prints the current percentage completed for the file
-def progress(filename, size, sent):
     # Global variables
-    global filename_prev, sent_prev
-    #sys.stdout.write("%s\'s progress: %.2f%%   \r" % (filename, float(sent)/float(size)*10) )
-    print("%s\'s progress: %.2f%%   \r" % (filename, float(sent)/float(size)*10) )
-    # Checks if it is stuck
-    if(filename_prev!=filename or sent_prev!=sent): # It is not stuck
-        # Restart timer
-        print('restart')
-        signal.alarm(time_wait)
+    time_wait = 10 # sec
+
+    def __init__(self):
+        """
+        Init method.
+        """
+
+        # Register the signal function handler
+        signal.signal(signal.SIGALRM, self.handler)
+        # Paths
+        self._ssh_keys_path = "/home/user/.ssh/id_rsa.pub" # ssh keys path
+
+        # Connection variables
+        self._server, self._port, self._user = '10.42.0.34', 8022, 'u0_a156'
+
+    def getSSHKeys(self):
+        """
+        Get the SSH keys.
+        """
+
+        file = open(self._ssh_keys_path, "r")
+        key = file.read()
+        return key
+
+    def handler(self, signum, frame):
+        """
+        Register an handler for the timeout.
+        """
+
+        print "Forever is over!"
+        raise TimeOut("end of time")
+
+    def progress(self, filename, size, sent):
+        """
+        Define progress callback that prints the current percentage completed for the file.
+        """
+
+        # Global variables
+        global filename_prev, sent_prev
+        #sys.stdout.write("%s\'s progress: %.2f%%   \r" % (filename, float(sent)/float(size)*10) )
+        print("%s\'s progress: %.2f%%   \r" % (filename, float(sent)/float(size)*10) )
+        # Checks if it is stuck
+        if(filename_prev!=filename or sent_prev!=sent): # It is not stuck
+            signal.alarm(self.time_wait) # Restart timer
+        # Fill prev variables
+        filename_prev, sent_prev = filename, sent
+
+
+    def createSSHClient(self):
+        """
+        Create SSH Client.
+        """
+
+        # Get ssh key
+        key = self.getSSHKeys()
+
+        # Establish ssh connection
+        try:
+            print('Set alarm')
+            signal.alarm(self.time_wait) # Start the alarm
+
+            # Create ssh object
+            print('Create ssh object')
+            ssh = paramiko.SSHClient()
+            ssh.load_system_host_keys()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(self._server, self._port, self._user, key, banner_timeout=10)
+            result = ssh
+        # Exceptions
+        except socket.error as e:
+            print('socket.error: %s' % e)
+            result = -1
+        except paramiko.ssh_exception.NoValidConnectionsError as e:
+            print('NoValidConnectionsError: %s ' % e)
+            result = -1
+        except paramiko.ssh_exception.SSHException as e:
+            print('SSHException: %s' % e)
+            result = -1
+        except TimeOut as e: # TimeOut transfer)
+            print('TimeOut: %s ' % e)
+            result = -1
+
+        if(result==-1):
+            ssh.close()
+
+        signal.alarm(0) # Disable the alarm
+        return result
+
+    def transferTablet2PC(self, remote_path, local_path, recursive = True):
         
-    # Fill prev variables
-    filename_prev = filename
-    sent_prev = sent
-
-def getPassword():
-    file = open("/home/user/.ssh/id_rsa.pub", "r")
-    key = file.read()
-    return key
-
-def createSSHClient(server, port, user, password):
-    client = paramiko.SSHClient()
-    client.load_system_host_keys()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(server, port, user, password, banner_timeout=10)
-    return client
-
-def createSSHClient_control():
-    # Register the signal function handler
-    signal.signal(signal.SIGALRM, handler)
-    # Get ssh key
-    key = getPassword()
-    # Establish ssh connection
-    try:
-        print('Set alarm')
-        signal.alarm(time_wait) # Start the alarm
-        # Create ssh object
-        print('Create ssh object')
-        ssh = createSSHClient('10.42.0.34', 8022, 'u0_a156', key)
-    except socket.error as e:
-        print('socket.error: %s' % e)
+        print('--- Tablet -> PC ---')
+        ssh = self.createSSHClient()
+        if(ssh == -1):
+            return -1
+        
+        result = 0
+        # Transfer files 
+        try:
+            print('Set alarm')
+            signal.alarm(self.time_wait) # Start the alarm
+            # Create scp object
+            print('Create scp object')
+            scp = SCPClient(ssh.get_transport(), progress=progress)
+            # Get method
+            print('Transfering files: %s -> %s' %(remote_path, local_path))
+            global filename_prev, sent_prev
+            filename_prev, sent_prev = '', 0
+            scp.get(remote_path, local_path, recursive = True)
+            #ftp_client = ssh.open_sftp()
+            #ftp_client.get('/sdcard/multimedia/Agumon.jpg','/home/user/Documentos/Agu.png')
+            # Close scp object
+            print('Closing scp')
+            scp.close()
+            result = 0
+        except SCPException as e: # No tablet file
+            print('SCPException: %s ' % e)
+            result = -1
+        except IOError as e: # No PC directory
+            print ('IOError: %s ' % e)
+            result = -1
+        except TimeOut as e: # TimeOut transfer
+            print ('TimeOut: %s ' % e)
+            result = -1
+        
         signal.alarm(0) # Disable the alarm
-        return -1
-    except paramiko.ssh_exception.NoValidConnectionsError as e:
-        print('NoValidConnectionsError: %s ' % e)
-        signal.alarm(0) # Disable the alarm
-        return -1
-    except paramiko.ssh_exception.SSHException as e:
-        print('SSHException: %s' % e)
-        signal.alarm(0) # Disable the alarm
-        return -1
-    except TimeOut as e: # TimeOut transfer)
-        print('TimeOut: %s ' % e)
-        signal.alarm(0) # Disable the alarm
-        return -1
-    signal.alarm(0) # Disable the alarm
-    return ssh # Success
+        ssh.close()
+        return result
 
-def transferTablet2PC(remote_path, local_path, recursive = True):
-    ssh = createSSHClient_control()
-    if(ssh == -1):
-        return -1
-    # Register the signal function handler
-    signal.signal(signal.SIGALRM, handler)
-    print('Tablet -> PC')
-    result = 0
-    # Transfer files 
-    try:
-        # Create scp object
-        print('Create scp object')
-        scp = SCPClient(ssh.get_transport(), progress=progress)
-        print('Set alarm')
-        signal.alarm(time_wait) # Start the alarm
-        # Get method
-        print('Transfering files: %s -> %s' %(remote_path, local_path))
-        global filename_prev, sent_prev
-        filename_prev, sent_prev = '', 0
-        scp.get(remote_path, local_path, recursive = True)
-        #ftp_client = ssh.open_sftp()
-        #ftp_client.get('/sdcard/multimedia/Agumon.jpg','/home/user/Documentos/Agu.png')
-        # Close scp object
-        print('Closing scp')
-        scp.close()
-    except SCPException as e: # No tablet file
-        print('SCPException: %s ' % e)
-        result = -1
-    except IOError as e: # No PC directory
-        print ('IOError: %s ' % e)
-        result = -1
-    except TimeOut as e: # TimeOut transfer
-        print ('TimeOut: %s ' % e)
-        result = -1
-    signal.alarm(0) # Disable the alarm
-    return result
+    def transferPC2Tablet(self, local_path, remote_path, recursive = True):
+        
+        print('--- PC -> Tablet ---')
+        ssh = self.createSSHClient()
+        if(ssh == -1):
+            return -1
+        
+        result = 0
+        try:
+            print('Set alarm')
+            signal.alarm(self.time_wait) # Start the alarm
+            # Create scp object
+            print('Create scp object')
+            scp = SCPClient(ssh.get_transport(), progress=progress)
+            # Put method
+            print('Transfering files: %s -> %s' %(local_path, remote_path))
+            global filename_prev, sent_prev
+            filename_prev, sent_prev = '', 0
+            print scp.put(local_path, recursive=recursive, remote_path=remote_path)
+            # Close scp object
+            print('Closing scp')
+            scp.close()
+            result = 0
+        except OSError as e: # No PC file
+            print('OSError: %s ' % e)
+            result = -1
+        except SCPException as e: # No tablet directory
+            print('SCPException: %s ' % e)
+            result = -1
+        except TimeOut as e: # TimeOut transfer
+            print ('TimeOut: %s ' % e)
+            result = -1
+        except EOFError as e: # EOFError transfer
+            print ('EOFError: %s ' % e)
+            result = -1
+        
+        signal.alarm(0) # Disable the alarm
+        ssh.close()
+        return result
 
-def transferPC2Tablet(local_path, remote_path, recursive = True):
-    ssh = createSSHClient_control()
-    if(ssh == -1):
-        return -1
-    # Register the signal function handler
-    signal.signal(signal.SIGALRM, handler)
-    print('PC -> Tablet')
-    result = 0
-    try:
-        # Create scp object
-        print('Create scp object')
-        scp = SCPClient(ssh.get_transport(), progress=progress)
-        print('Set alarm')
-        signal.alarm(time_wait) # Start the alarm
-        # Put method
-        print('Transfering files: %s -> %s' %(local_path, remote_path))
-        global filename_prev, sent_prev
-        filename_prev, sent_prev = '', 0
-        print scp.put(local_path, recursive=recursive, remote_path=remote_path)
-        # Close scp object
-        print('Closing scp')
-        scp.close()
-    except OSError as e: # No PC file
-        print('OSError: %s ' % e)
-        result = -1
-    except SCPException as e: # No tablet directory
-        print('SCPException: %s ' % e)
-        result = -1
-    except TimeOut as e: # TimeOut transfer
-        print ('TimeOut: %s ' % e)
-        result = -1
-    except EOFError as e: # TimeOut transfer
-        print ('EOFError: %s ' % e)
-        result = -1
-    signal.alarm(0) # Disable the alarm
-    return result
+    def lsTablet(self, direc = '.'):
+        """
+        Get the list of the files in a given directory.
+        """
+        print('--- lsTablet ---')
+        ssh = self.createSSHClient()
+        if(ssh == -1):
+            return -1
+        
+        result = 0
+        try:
+            print('Set alarm')
+            signal.alarm(self.time_wait) # Start the alarm
+            sftp = ssh.open_sftp()
+            # listdir method
+            print('ls to: %s' % direc)
+            result = sftp.listdir(direc)
+
+        except TimeOut as e: # TimeOut transfer
+            print ('TimeOut: %s ' % e)
+            result = -1
+        except IOError as e: # Directory no exists
+            print('IOError: %s ' % e)
+            result = -1
+        except paramiko.ssh_exception.SSHException as e:
+            print ('SSHException: %s ' % e)
+            result = -1
+        else:
+            print('ls made with success')
+        signal.alarm(0) # Disable the alarm
+        ssh.close()
+        return result
+
+    def mkdirTablet(self, direc):
+        """
+        Make a new directory in a given directory.
+        """
+        print('--- mkdirTablet ---')
+        ssh = self.createSSHClient()
+        if(ssh == -1):
+            return -1
+        
+        result = 0
+        try:
+            print('Set alarm')
+            signal.alarm(self.time_wait) # Start the alarm
+            sftp = ssh.open_sftp()
+            # listdir method
+            print('Creating directory: %s' % direc)
+            result = sftp.mkdir(direc)
+
+        except IOError as e: # Directory already exists or directory root no exists
+            print('IOError: %s ' % e)
+            result = -1
+        except TimeOut as e: # TimeOut transfer
+            print ('TimeOut: %s ' % e)
+            result = -1
+        except paramiko.ssh_exception.SSHException as e:
+            print ('SSHException: %s ' % e)
+            result = -1
+        except paramiko.transport as e:
+            print ('transport: %s ' % e)
+            result = -1
+        else:
+            print('Directory created with success')
+
+        signal.alarm(0) # Disable the alarm
+        ssh.close()
+        return result
+
+    def existsTablet(self, direc):
+        """
+        Checks if a file or directory exists.
+        """
+
+        print('--- existsTablet ---')
+        print('Checking: %s' % direc)
+
+        # Get root directory
+        direc_vec = direc.split('/')
+
+        # Remove spaces
+        direc_vec = [x for x in direc_vec if x != '']
+
+        # Rebuild the directory
+        direc = ''
+        for folder in direc_vec[:-1]:
+            direc = direc + '/' + folder
+        file = direc_vec[-1]
+        print('direc', direc)
+        print('file', file)
+
+        # Make ls
+        list_files = self.lsTablet(direc)
+        if(list_files == -1): # Directory error
+            print ('Error')
+            return -1
+
+        # For to find it
+        for list_files_i in list_files:
+            if (list_files_i == file):
+                print('File or directory found')
+                return 0
+
+        # Not found
+        print('File or directory NOT found')
+        return -2
+
+    def cutTablet(self, oldpath, newpath):
+        """
+        Cut a new directory in a given directory.
+        """
+
+        print('--- cutTablet ---')
+        ssh = self.createSSHClient()
+        if(ssh == -1):
+            return -1
+        result = 0
+        try:
+            print('Set alarm')
+            signal.alarm(self.time_wait) # Start the alarm
+            sftp = ssh.open_sftp()
+            # listdir method
+            print('Moving file %s to %s' % (oldpath, newpath))
+            print sftp.rename(oldpath, newpath)
+            result = 0
+        except IOError as e: # Newpath is a folder or something goes wrong
+            print('IOError: %s ' % e)
+            result = -1
+        except TimeOut as e: # TimeOut transfer
+            print ('TimeOut: %s ' % e)
+            result = -1
+        except paramiko.ssh_exception.SSHException as e:
+            print ('SSHException: %s ' % e)
+            result = -1
+        else:
+            print('Directory created with success')
+
+        signal.alarm(0) # Disable the alarm
+        return result
+
 
 def loop_forever():
     import time
@@ -194,7 +371,17 @@ def loop_forever():
 # Main
 if __name__ == '__main__':
     
+    conector = PCTablet_Connection()
+    print conector.cutTablet('/sdcard/multimedia/Agumon.jpg', '/sdcard/multimedia/wikipedia/Agumon.jpg')
+    print conector.existsTablet('/sdcard/multimedia/Agumon.jp')
+    print conector.lsTablet('/sdcard/multimedia/image/weather/wikipedia/g')
+    print conector.mkdirTablet('/sdcard/multimedia/image/test/asd/gjjgy')
+    '''
+    print conector.createSSHClient()
+    conector.transferPC2Tablet()
+    '''
+
     #transferTablet2PC('/sdcard/multimedia/image/weather/wikipedia/', '/home/user/Documentos/')
-    transferPC2Tablet('/home/user/Campeones.mp4', remote_path='/sdcard/multimedia/')
-    transferPC2Tablet('/home/user/ROS/catkin_dev/src/time_weather_skill/data/weather_icons/wikipedia', remote_path='/sdcard/multimedia/')
+    #conector.transferPC2Tablet('/home/user/Campeones.mp4', remote_path='/sdcard/multimedia/')
+    #conector.transferPC2Tablet('/home/user/ROS/catkin_dev/src/time_weather_skill/data/weather_icons/wikipedia', remote_path='/sdcard/multimedia/')
     loop_forever()
