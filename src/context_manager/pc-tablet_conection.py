@@ -359,6 +359,41 @@ class PCTablet_Connection():
             print('Directory created with success')
 
         signal.alarm(0) # Disable the alarm
+        ssh.close()
+        return result
+
+    def removeTablet(self, path):
+        """
+        Cut a new directory in a given directory.
+        """
+
+        print('--- removeTablet ---')
+        ssh = self.createSSHClient()
+        if(ssh == -1):
+            return -1
+        result = 0
+        try:
+            print('Set alarm')
+            signal.alarm(self.time_wait) # Start the alarm
+            sftp = ssh.open_sftp()
+            # listdir method
+            print('Removing file %s' % path)
+            print sftp.remove(path)
+            result = 0
+        except IOError as e: # Newpath is a folder or something goes wrong
+            print('IOError: %s ' % e)
+            result = -1
+        except TimeOut as e: # TimeOut transfer
+            print ('TimeOut: %s ' % e)
+            result = -1
+        except paramiko.ssh_exception.SSHException as e:
+            print ('SSHException: %s ' % e)
+            result = -1
+        else:
+            print('Directory removed with success')
+
+        signal.alarm(0) # Disable the alarm
+        ssh.close()
         return result
 
 
@@ -372,7 +407,9 @@ def loop_forever():
 if __name__ == '__main__':
     
     conector = PCTablet_Connection()
-    print conector.cutTablet('/sdcard/multimedia/Agumon.jpg', '/sdcard/multimedia/wikipedia/Agumon.jpg')
+    print conector.removeTablet('/sdcard/multimedia/wikipedia/Source')
+    #print conector.cutTablet('/sdcard/multimedia/Agumon.jpg', '/sdcard/multimedia/wikipedia/Agumon.jpg')
+    print conector.cutTablet( '/sdcard/wikipedia/', '/sdcard/multimedia/wikipedia/')
     print conector.existsTablet('/sdcard/multimedia/Agumon.jp')
     print conector.lsTablet('/sdcard/multimedia/image/weather/wikipedia/g')
     print conector.mkdirTablet('/sdcard/multimedia/image/test/asd/gjjgy')
