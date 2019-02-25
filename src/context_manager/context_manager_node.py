@@ -25,6 +25,11 @@ import yaml # https://pyyaml.org/wiki/PyYAMLDocumentation
 # Package name
 pkg_name = 'context_manager'
 
+# Local paths
+rospack = rospkg.RosPack()
+pkg_path = rospack.get_path(pkg_name) + '/' # Package path
+path_data = pkg_path + 'data/'
+
 if __name__ == '__main__':
     try:
         # start the node
@@ -39,7 +44,6 @@ if __name__ == '__main__':
         n_user = int(raw_input('\nIntroduce el numero de tu usuario (0, 1, 2, 3): '))
 
         # User
-        path_data = '/home/user/ROS/catkin_dev/src/context_manager/data/'
         filename_user = 'user' + str(n_user) +'.yaml'
         filename_robot = 'robot.yaml'
         pathfile_user = path_data + filename_user
